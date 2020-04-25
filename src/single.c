@@ -1,4 +1,4 @@
-/* single.c: Single User HTTP Server */
+/*single.c: Single User HTTP Server */
 
 #include "spidey.h"
 
@@ -17,10 +17,17 @@ int single_server(int sfd) {
     /* Accept and handle HTTP request */
     while (true) {
     	/* Accept request */
+        Request *request = accept_request(sfd);
+        if ( !request ) {
+            log("Unable to accept request: %s", strerror(errno));
+            continue;
+        }
 
 	/* Handle request */
+        handle_request(request);
 
 	/* Free request */
+        free_request(request);
     }
 
     /* Close server socket */

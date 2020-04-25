@@ -30,7 +30,30 @@ Status handle_error(Request *request, Status status);
 Status  handle_request(Request *r) {
     Status result;
 
-    /* Parse request */
+    /* Parse request: pare_request_method*/
+    char *buffer[BUFSIZ];
+    if ( !fgets(buffer, BUFSIZ, r->stream) ) {
+        return HTTP_STATUS_BAD_REQUEST;
+    }
+
+    char *method = strtok(buffer, WHITESPACE);
+    char *uri    = strtok(NULL, WHITESPACE);
+
+    if ( !method || !uri ) {
+        return HTTP_STATUS_BAD_REQUEST;
+    }
+
+    /* Parse request: parse_requesT_headers */
+    while (fgets(buffer, BUFSIZ, r->stream) && strlen(buffer) > 2) {
+        debug("Header: %s", buffer);
+    }
+
+    /* HANDLER EXAMPLE */
+    fprintf(r->stream, "HTTP/1.0 200 OK\r\n");
+    fprintf(r->stream, "Content-Type: text/html\r\n");
+    fprintf(r->stream, "\r\n");
+
+    fprintf(r->stream, "<h1>Sup Twitch Livestream<h1>");
 
     /* Determine request path */
     debug("HTTP REQUEST PATH: %s", r->path);

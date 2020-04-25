@@ -28,23 +28,43 @@ int parse_request_headers(Request *r);
  * The returned request struct must be deallocated using free_request.
  **/
 Request * accept_request(int sfd) {
-    Request *r;
-    struct sockaddr raddr;
-    socklen_t rlen;
 
     /* Allocate request struct (zeroed) */
+    Request *r = calloc(1, sizeof(Request));
+    if ( !r ) {
+        debug("Unable to allocate request: %s", strerror(errno));
+        return NULL;
+    }
 
     /* Accept a client */
+    struct sockaddr raddr;
+    socklen_t rlen = sizeof(struct sockaddr);
+    r->fd = accept(sfd, &raddr, &rlen); 
+    if (r->fd < 0) {
+        debug("Unable to accept: %s", strerror(errno));
+        goto fail;
+    }
 
     /* Lookup client information */
+    int status = getnameinfo(&raddr, rlen, r->host, sizeof(r->host), r->port, sizeof(r->port), NI_NUMERICHOST | NI_NUMERICSERV);
+    if (status < 0) {
+        debug("Unable to acept: %s", gai_strerror(status));
+        goto fail;
+    }
 
     /* Open socket stream */
+    r->stream = fdopen(r->fd, "w+");
+    if ( !r->stream) {
+        debug("Unable to fdopen: %s", strerror(errno));
+        goto fail;
+    }
 
     log("Accepted request from %s:%s", r->host, r->port);
     return r;
 
 fail:
     /* Deallocate request struct */
+    free_request(r);
     return NULL;
 }
 
@@ -66,12 +86,14 @@ void free_request(Request *r) {
     }
 
     /* Close socket or fd */
+    fclose(r->stream);
 
     /* Free allocated strings */
 
     /* Free headers */
 
     /* Free request */
+    free(r);
 }
 
 /**
@@ -90,7 +112,7 @@ int parse_request(Request *r) {
     return 0;
 }
 
-/**
+/*
  * Parse HTTP Request Method and URI.
  *
  * @param   r           Request structure.
@@ -114,8 +136,17 @@ int parse_request_method(Request *r) {
     char *query;
 
     /* Read line from socket */
+    if (!fgets(buffer, BUFSIZ, r->stream) ) {
+        return HTTP_STATUS_BAD_REQUEST;
+    }
 
     /* Parse method and uri */
+    method = strtok(buffer, WHITESPACE);
+    uri    = strtok(NULL  , WHITESPACE);
+
+    if ( !method || !uri ) {
+        return HTTP_STATUS_BAD_REQUEST;
+    }
 
     /* Parse query from uri */
 
