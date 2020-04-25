@@ -21,13 +21,33 @@ int forking_server(int sfd) {
     /* Accept and handle HTTP request */
     while (true) {
     	/* Accept request */
+        Request *request = accept_request(sfd);
+        if ( !request ) {
+            log("Unable to accept request: %s", strerror(errno));
+            continue;
+        }
 
 	/* Ignore children */
+        signal(SIGCHLD, SIG_IGN);
 
 	/* Fork off child process to handle request */
+        pid_t pid = fork();
+        if (pid < 0) {
+            log("Unsuccesful fork: %s", strerror(errno));
+            continue;
+        }
+        if (pid == 0) {
+            handle_request(request);
+            free_request(request);
+            debug("Child handled the request");
+            exit(EXIT_SUCCESS);
+        } else {
+            free_request(request);
+        }
     }
 
     /* Close server socket */
+    close(sfd);
     return EXIT_SUCCESS;
 }
 

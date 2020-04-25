@@ -86,9 +86,12 @@ bool parse_options(int argc, char *argv[], ServerMode *mode) {
  * Parses command line options and starts appropriate server
  **/
 int main(int argc, char *argv[]) {
-    ServerMode mode;
+    ServerMode mode = SINGLE;
 
     /* Parse command line options */
+    if ( !parse_options(argc, argv, &mode) ) {
+        debug("Error Parsing Options");
+    }
 
     /* Listen to server socket */
     int server_fd = socket_listen(Port);
@@ -104,7 +107,14 @@ int main(int argc, char *argv[]) {
     debug("ConcurrencyMode = %s", mode == SINGLE ? "Single" : "Forking");
 
     /* Start either forking or single HTTP server */
-    single_server(server_fd);
+    if ( mode == SINGLE ) {
+        single_server(server_fd);
+    } else if ( mode == FORKING ) {
+        forking_server(server_fd);
+    } else {
+        log("No server has started; error with choosing mode");
+        close(server_fd);
+    }
 
     return EXIT_SUCCESS;
 }

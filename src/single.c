@@ -31,6 +31,7 @@ int single_server(int sfd) {
     }
 
     /* Close server socket */
+    close(sfd);
     return EXIT_SUCCESS;
 }
 
