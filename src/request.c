@@ -89,9 +89,22 @@ void free_request(Request *r) {
     fclose(r->stream);
 
     /* Free allocated strings */
+    free(r->method);
+    free(r->uri);
+    free(r->query);
+    free(r->path);
 
     /* Free headers */
-
+    Header *h = r->headers;
+    Header *curr;
+    while (h) {
+        free(h->name);
+        free(h->data);
+        curr = h;
+        h = h->next;
+        free(curr);
+    }
+    
     /* Free request */
     free(r);
 }
@@ -107,8 +120,12 @@ void free_request(Request *r) {
  **/
 int parse_request(Request *r) {
     /* Parse HTTP Request Method */
+    if (parse_request_method(r) < 0)
+        return -1;
 
     /* Parse HTTP Requet Headers*/
+    if (parse_request_headers(r) < 0)
+        return -1;
     return 0;
 }
 
@@ -136,21 +153,37 @@ int parse_request_method(Request *r) {
     char *query;
 
     /* Read line from socket */
+    log("began to read from socket");
     if (!fgets(buffer, BUFSIZ, r->stream) ) {
-        return HTTP_STATUS_BAD_REQUEST;
+        goto fail;
     }
 
     /* Parse method and uri */
+    log("began to parse method and uri");
     method = strtok(buffer, WHITESPACE);
     uri    = strtok(NULL  , WHITESPACE);
 
     if ( !method || !uri ) {
-        return HTTP_STATUS_BAD_REQUEST;
+        goto fail;
     }
 
     /* Parse query from uri */
+    log("began to parse query");
+    query = strchr(uri,'?');
+    if ( !query ) {
+        query = "";
+    } else {
+        *(query++) = '\0';
+    }
 
     /* Record method, uri, and query in request struct */
+    log("began to record in the struct");
+    r->method = strdup(method);
+    r->uri = strdup(uri);
+    r->query = strdup(query);
+    if ( !(r->method) || !(r->uri) || !(r->query) ) {
+        goto fail;
+    }
     debug("HTTP METHOD: %s", r->method);
     debug("HTTP URI:    %s", r->uri);
     debug("HTTP QUERY:  %s", r->query);
@@ -158,6 +191,7 @@ int parse_request_method(Request *r) {
     return 0;
 
 fail:
+    free_request(r);
     return -1;
 }
 
@@ -195,6 +229,29 @@ int parse_request_headers(Request *r) {
     char *data;
 
     /* Parse headers from socket */
+    while ( fgets(buffer, BUFSIZ, r->stream) && strlen(buffer) > 2 ) {
+
+        data = strchr(buffer,':');
+        *(data++) = '\0';
+        data = skip_whitespace(data);
+        chomp(data);
+        name = buffer;
+        debug("Data: %s", data);
+        debug("Name: %s", name);
+
+        curr = calloc(1,  sizeof(Header));
+        if ( !curr ) {
+            goto fail;
+        }
+        curr->name = strdup(name);
+        curr->data = strdup(data);
+        if ( !(curr->name) || !(curr->data) ) {
+            goto fail;
+        }
+        curr->next = r->headers;
+        r->headers = curr;
+        
+    }
 
 #ifndef NDEBUG
     for (Header *header = r->headers; header; header = header->next) {
@@ -204,6 +261,7 @@ int parse_request_headers(Request *r) {
     return 0;
 
 fail:
+    free_request(r);
     return -1;
 }
 

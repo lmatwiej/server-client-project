@@ -61,9 +61,20 @@ char * determine_mimetype(const char *path) {
  *
  * Otherwise, return a newly allocated string containing the real path.  This
  * string must later be free'd.
- **/
+ */
 char * determine_request_path(const char *uri) {
-    return NULL;
+
+    char path_buffer[BUFSIZ];
+    sprintf(path_buffer, "%s%s", RootPath, uri);
+    
+    if ( strncmp((const char *)RootPath, (const char *)path_buffer, strlen(RootPath)) ) {
+        return NULL;
+    }
+
+    char *UriPath = realpath((const char *)path_buffer, NULL);
+    debug("The URI Path is: %s", UriPath);
+        
+    return UriPath;
 }
 
 /**
@@ -103,6 +114,9 @@ char * skip_nonwhitespace(char *s) {
  * @return  Point to first non-whitespace character in s.
  **/
 char * skip_whitespace(char *s) {
+    while ( isspace(*s) ) {
+        s++;
+    }
     return s;
 }
 
