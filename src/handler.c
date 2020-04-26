@@ -35,10 +35,11 @@ Status  handle_request(Request *r) {
     struct stat sb;
 
     /* Parse request */
+    log("began to parse the request");
     if (parse_request(r) < 0){
-      log("parse_request failed\n");
-      result = handle_error(r, HTTP_STATUS_BAD_REQUEST);
-      return result;
+        log("parse_request failed\n");
+        result = handle_error(r, HTTP_STATUS_BAD_REQUEST);
+        return result;
     }
 
     /* Determine request path */
@@ -53,19 +54,19 @@ Status  handle_request(Request *r) {
 
     /* Dispatch to appropriate request handler type based on file type */
     if(stat(r->path, &sb) < 0){
-      log("Request: handle_error\n");
-      result = handle_error(r, HTTP_STATUS_NOT_FOUND);
+        log("Request: handle_error\n");
+        result = handle_error(r, HTTP_STATUS_NOT_FOUND);
     }
     else if((sb.st_mode & S_IFMT) == S_IFDIR){
-      log("Request: handle_browse_request\n");
-      result = handle_browse_request(r);
+        log("Request: handle_browse_request\n");
+        result = handle_browse_request(r);
     }
-    else if(S_ISREG(sb.st_mode)){
-      if(!access(r->path, X_OK)){
-        log("Request: handle_cgi_request\n");
-        result = handle_cgi_request(r);
-      }
-      else if(!access(r->path, R_OK)){
+    else if(S_ISREG(sb.st_mode)) {
+        if(!access(r->path, X_OK)) {
+            log("Request: handle_cgi_request\n");
+            result = handle_cgi_request(r);
+        }
+        else if(!access(r->path, R_OK)){
         log("Request: handle_file_request\n");
         result = handle_file_request(r);
       }
@@ -137,14 +138,14 @@ Status  handle_browse_request(Request *r) {
  **/
 Status  handle_file_request(Request *r) {
     log("entered handle_file_request\n");
-    FILE *fs;
+    FILE *file_stream;
     char buffer[BUFSIZ];
     char *mtype = NULL;
     size_t nread;
 
     /* Open file for reading */
-    fs = fopen(r->path, "r");
-    if(!fs){
+    file_stream = fopen(r->path, "r");
+    if( !file_stream ){
       fprintf(stderr, "fopen failed: %s\n", strerror(errno));
       log("fopen failed\n");
       return handle_error(r, HTTP_STATUS_NOT_FOUND);
@@ -156,25 +157,27 @@ Status  handle_file_request(Request *r) {
 
      /* Write HTTP Headers with OK status and determined Content-Type */
     fprintf(r->stream, "HTTP/1.0 200 OK\r\n");
-    fprintf(r->stream, "Content-Type: %s\n", mtype);
+    fprintf(r->stream, "Content-Type: %s\r\n", mtype);
     fprintf(r->stream, "\r\n");
 
     /* Read from file and write to socket in chunks */
-    while((nread = fread(buffer, 1, BUFSIZ, fs)) > 0){
-      if(fwrite(buffer, 1, nread, r->stream));
-        goto fail;
+    nread = fread(buffer, 1, BUFSIZ, file_stream);
+    while ( nread > 0 ) {
+        if ( ! fwrite(buffer, 1, nread, r->stream) ) {
+            fprintf(stderr, "%s\n", strerror(errno));
+            goto fail;
+        }
+        nread = fread(buffer, 1, BUFSIZ, file_stream);
     }
 
      /* Close file, deallocate mimetype, return OK */
-    fclose(fs);
-    fflush(r->stream);
+    fclose(file_stream);
     free(mtype);
     return HTTP_STATUS_OK;
 
 fail:
     /* Close file, free mimetype, return INTERNAL_SERVER_ERROR */
-    fclose(fs);
-    fflush(r->stream);
+    fclose(file_stream);
     free(mtype);
     return HTTP_STATUS_INTERNAL_SERVER_ERROR;
 }
@@ -273,7 +276,7 @@ Status  handle_error(Request *r, Status status) {
 
     /* Write HTML Description of Error*/
     fprintf(r->stream, "<html><body>");
-	  fprintf(r->stream, "<h1>%s</h1>\n",statString);
+    fprintf(r->stream, "<h1>%s</h1>\n",statString);
     fprintf(r->stream, "<p>:( >:( ;,( Error!</p>\n");
     fprintf(r->stream, "<html><body>");
 
