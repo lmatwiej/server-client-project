@@ -99,29 +99,29 @@ Status  handle_browse_request(Request *r) {
     /* Open a directory for reading or scanning */
     numHeader = scandir(r->path, &entries, NULL, alphasort);
     if(numHeader < 0){
-      return handle_error(r, HTTP_STATUS_NOT_FOUND);
+        return handle_error(r, HTTP_STATUS_NOT_FOUND);
     }
 
     /* Write HTTP Header with OK Status and text/html Content-Type */
     fprintf(r->stream, "HTTP/1.0 200 OK\r\n");
     fprintf(r->stream, "Content-Type: text/html\r\n");
-   	fprintf(r->stream, "\r\n");
+    fprintf(r->stream, "\r\n");
 
     /* For each entry in directory, emit HTML list item */
     fprintf(r->stream, "<ul>\n");
-    for(int i = 0; i < numHeader; i++){
-      if(!streq(entries[i]->d_name, ".")){
-        fprintf(r->stream, "<li><a href=\"%s/%s\">%s</a></li>\n",
+    for(int i = 0; i < numHeader; i++) {
+        if( streq(entries[i]->d_name, ".") ) {
+            free(entries[i]);
+            continue;
+        }
+        fprintf(r->stream, "<li><a href=\"%s/%s\">%s</a></li>\r\n",
         streq(r->uri, "/") ? "" : r->uri, entries[i]->d_name, entries[i]->d_name);
-      }
-      free(entries[i]);
+        free(entries[i]);
     }
     fprintf(r->stream, "</ul>\n");
-
+    free(entries);
 
     /* Return OK */
-    free(entries);
-    fflush(r->stream);
     return HTTP_STATUS_OK;
 }
 
