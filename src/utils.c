@@ -77,7 +77,7 @@ end:
   fclose(fs);
   return strdup(mimetype);
   }
-}
+
 
 /**
  * Determine actual filesystem path based on RootPath and URI.
