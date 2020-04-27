@@ -40,10 +40,43 @@ char * determine_mimetype(const char *path) {
 
     /* Find file extension */
 
+    ext = strrchr(path, '.');
+
+    if (ext == NULL)
+        goto failure;
+    ++ext;
+
+    log("Extension is: %s", ext);
+
     /* Open MimeTypesPath file */
+    if ((fs = fopen(MimeTypesPath, "r")) == NULL){
+        debug("fopen error: %s", strerror(errno));
+        goto failure;
+    }
 
     /* Scan file for matching file extensions */
-    return NULL;
+    while(fgets(buffer, BUFSIZ, fs) != NULL){
+        mimetype = strtok(skip_whitespace(buffer), WHITESPACE);
+        if(mimetype == NULL){
+            continue;
+        }
+
+        token = strtok(NULL, WHITESPACE);
+        while(token){
+          if (streq(token, ext)){
+              goto end;
+          }
+          token = strtok(NULL, WHITESPACE);
+        }
+    }
+failure:
+  mimetype = DefaultMimeType;
+  fclose(fs);
+  return strdup(mimetype);
+end:
+  fclose(fs);
+  return strdup(mimetype);
+  }
 }
 
 /**
@@ -66,14 +99,14 @@ char * determine_request_path(const char *uri) {
 
     char path_buffer[BUFSIZ];
     sprintf(path_buffer, "%s%s", RootPath, uri);
-    
+
     if ( strncmp((const char *)RootPath, (const char *)path_buffer, strlen(RootPath)) ) {
         return NULL;
     }
 
     char *UriPath = realpath((const char *)path_buffer, NULL);
     debug("The URI Path is: %s", UriPath);
-        
+
     return UriPath;
 }
 
