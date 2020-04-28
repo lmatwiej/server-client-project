@@ -99,6 +99,9 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
+    char buffer[BUFSIZ];
+    RootPath = realpath(RootPath, buffer);
+    
     /* Determine real RootPath */
     log("Listening on port %s", Port);
     debug("RootPath        = %s", RootPath);

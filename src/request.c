@@ -81,6 +81,7 @@ fail:
  *  4. Frees request struct.
  **/
 void free_request(Request *r) {
+    log("Entered Free Request");
     if (!r) {
     	return;
     }
@@ -119,6 +120,7 @@ void free_request(Request *r) {
  * headers, returning 0 on success, and -1 on error.
  **/
 int parse_request(Request *r) {
+    log("Entered Parse Request");
     /* Parse HTTP Request Method */
     if (parse_request_method(r) < 0)
         return -1;
@@ -147,19 +149,18 @@ int parse_request(Request *r) {
  * This function extracts the method, uri, and query (if it exists).
  **/
 int parse_request_method(Request *r) {
+    log("Entered Parse Request Method");
     char buffer[BUFSIZ];
     char *method;
     char *uri;
     char *query;
 
     /* Read line from socket */
-    log("began to read from socket");
     if (!fgets(buffer, BUFSIZ, r->stream) ) {
         goto fail;
     }
 
     /* Parse method and uri */
-    log("began to parse method and uri");
     method = strtok(buffer, WHITESPACE);
     uri    = strtok(NULL  , WHITESPACE);
 
@@ -168,7 +169,6 @@ int parse_request_method(Request *r) {
     }
 
     /* Parse query from uri */
-    log("began to parse query");
     query = strchr(uri,'?');
     if ( !query ) {
         query = "";
@@ -177,7 +177,6 @@ int parse_request_method(Request *r) {
     }
 
     /* Record method, uri, and query in request struct */
-    log("began to record in the struct");
     r->method = strdup(method);
     r->uri = strdup(uri);
     r->query = strdup(query);
@@ -191,7 +190,6 @@ int parse_request_method(Request *r) {
     return 0;
 
 fail:
-    free_request(r);
     return -1;
 }
 
@@ -223,6 +221,7 @@ fail:
  *      headers.append(header)
  **/
 int parse_request_headers(Request *r) {
+    log("Entered Parse Request Headers");
     Header *curr = NULL;
     char buffer[BUFSIZ];
     char *name;
@@ -232,12 +231,13 @@ int parse_request_headers(Request *r) {
     while ( fgets(buffer, BUFSIZ, r->stream) && strlen(buffer) > 2 ) {
 
         data = strchr(buffer,':');
+        if ( !data ) {
+            goto fail;
+        }
         *(data++) = '\0';
         data = skip_whitespace(data);
         chomp(data);
         name = buffer;
-        debug("Data: %s", data);
-        debug("Name: %s", name);
 
         curr = calloc(1,  sizeof(Header));
         if ( !curr ) {
@@ -261,7 +261,6 @@ int parse_request_headers(Request *r) {
     return 0;
 
 fail:
-    free_request(r);
     return -1;
 }
 

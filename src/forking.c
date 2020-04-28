@@ -19,6 +19,7 @@
  **/
 int forking_server(int sfd) {
     /* Accept and handle HTTP request */
+    log("Entered Forking Server");
     while (true) {
     	/* Accept request */
         Request *request = accept_request(sfd);

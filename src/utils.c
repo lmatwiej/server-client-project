@@ -42,42 +42,43 @@ char * determine_mimetype(const char *path) {
 
     ext = strrchr(path, '.');
 
-    if (ext == NULL)
+    if ( !ext ) {
         goto failure;
-    ++ext;
+    }
+    ext++;
 
     log("Extension is: %s", ext);
 
     /* Open MimeTypesPath file */
-    if ((fs = fopen(MimeTypesPath, "r")) == NULL){
+    if ( !(fs = fopen(MimeTypesPath, "r")) ) {
         debug("fopen error: %s", strerror(errno));
         goto failure;
     }
 
     /* Scan file for matching file extensions */
-    while(fgets(buffer, BUFSIZ, fs) != NULL){
+    while( fgets(buffer, BUFSIZ, fs) ) {
         mimetype = strtok(skip_whitespace(buffer), WHITESPACE);
-        if(mimetype == NULL){
+        if( !mimetype ){
             continue;
         }
 
         token = strtok(NULL, WHITESPACE);
-        while(token){
-          if (streq(token, ext)){
+        while (token) {
+          if ( streq(token, ext) ){
               goto end;
           }
           token = strtok(NULL, WHITESPACE);
         }
     }
-failure:
-  mimetype = DefaultMimeType;
-  fclose(fs);
-  return strdup(mimetype);
-end:
-  fclose(fs);
-  return strdup(mimetype);
-  }
+    fclose(fs);
 
+failure:
+    return strdup(DefaultMimeType);
+
+end:
+    fclose(fs);
+    return strdup(mimetype);
+}
 
 /**
  * Determine actual filesystem path based on RootPath and URI.
@@ -100,12 +101,11 @@ char * determine_request_path(const char *uri) {
     char path_buffer[BUFSIZ];
     sprintf(path_buffer, "%s%s", RootPath, uri);
 
-    if ( strncmp((const char *)RootPath, (const char *)path_buffer, strlen(RootPath)) ) {
+    char *UriPath = realpath(path_buffer, NULL);
+
+    if ( strncmp(RootPath, path_buffer, strlen(RootPath)) ) {
         return NULL;
     }
-
-    char *UriPath = realpath((const char *)path_buffer, NULL);
-    debug("The URI Path is: %s", UriPath);
 
     return UriPath;
 }
@@ -127,7 +127,19 @@ const char * http_status_string(Status status) {
         "418 I'm A Teapot",
     };
 
-    return NULL;
+    switch (status) { 
+        case HTTP_STATUS_OK:
+            return StatusStrings[0];
+        case HTTP_STATUS_BAD_REQUEST:
+            return StatusStrings[1];
+        case HTTP_STATUS_NOT_FOUND:
+            return StatusStrings[2];
+        case HTTP_STATUS_INTERNAL_SERVER_ERROR:
+            return StatusStrings[3];
+        default:
+            return NULL;
+
+    }
 }
 
 /**
@@ -137,6 +149,10 @@ const char * http_status_string(Status status) {
  * @return  Point to first whitespace character in s.
  **/
 char * skip_nonwhitespace(char *s) {
+    while ( ! isspace(*s) ) {
+        s++;
+    }
+
     return s;
 }
 

@@ -14,6 +14,7 @@
  * @return  Exit status of server (EXIT_SUCCESS).
  **/
 int single_server(int sfd) {
+    log("Entered Single Server");
     /* Accept and handle HTTP request */
     while (true) {
     	/* Accept request */
@@ -28,6 +29,7 @@ int single_server(int sfd) {
 
 	/* Free request */
         free_request(request);
+        break;
     }
 
     /* Close server socket */

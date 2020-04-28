@@ -29,16 +29,15 @@ Status handle_error(Request *request, Status status);
  **/
 Status  handle_request(Request *r) {
 
-    log("entered handle_request\n");
+    log("entered handle_request");
 
     Status result;
     struct stat sb;
 
     /* Parse request */
-    log("began to parse the request");
     if (parse_request(r) < 0){
-        log("parse_request failed\n");
         result = handle_error(r, HTTP_STATUS_BAD_REQUEST);
+        log("HTTP REQUEST STATUS: %s\n", http_status_string(result));
         return result;
     }
 
@@ -51,29 +50,31 @@ Status  handle_request(Request *r) {
     }
 
     debug("HTTP REQUEST PATH: %s", r->path);
-
-    /* Dispatch to appropriate request handler type based on file type */
+   
     if(stat(r->path, &sb) < 0){
-        log("Request: handle_error\n");
         result = handle_error(r, HTTP_STATUS_NOT_FOUND);
+        log("HTTP REQUEST STATUS: %s\n", http_status_string(result));
+        return result;
     }
-    else if((sb.st_mode & S_IFMT) == S_IFDIR){
-        log("Request: handle_browse_request\n");
+    
+    /* Dispatch to appropriate request handler type based on file type */
+
+    if ( S_ISDIR(sb.st_mode) ) {
+        log("HTTP REQUEST TYPE: BROWSE");
         result = handle_browse_request(r);
     }
     else if(S_ISREG(sb.st_mode)) {
-        if(!access(r->path, X_OK)) {
-            log("Request: handle_cgi_request\n");
+        if ( !access(r->path, X_OK) ) {
+            log("HTTP REQUEST TYPE: CGI");
             result = handle_cgi_request(r);
+        } else if ( !access(r->path, R_OK) ) {
+            log("HTTP REQUEST TYPE: FILE");
+            result = handle_file_request(r);
+        } else {
+            result = handle_error(r, HTTP_STATUS_NOT_FOUND);
         }
-        else if(!access(r->path, R_OK)){
-        log("Request: handle_file_request\n");
-        result = handle_file_request(r);
-      }
-    }
-    else{
-      log("Request: handle_error\n");
-      result = handle_error(r, HTTP_STATUS_NOT_FOUND);
+    } else {
+        result = handle_error(r, HTTP_STATUS_NOT_FOUND);
     }
 
     log("HTTP REQUEST STATUS: %s\n", http_status_string(result));
@@ -92,7 +93,7 @@ Status  handle_request(Request *r) {
  * with HTTP_STATUS_NOT_FOUND.
  **/
 Status  handle_browse_request(Request *r) {
-    log("entered handle_browse_request\n");
+    log("entered handle_browse_request");
     struct dirent **entries;
     int numHeader;
 
@@ -114,7 +115,7 @@ Status  handle_browse_request(Request *r) {
             free(entries[i]);
             continue;
         }
-        fprintf(r->stream, "<li><a href=\"%s/%s\">%s</a></li>\r\n",
+        fprintf(r->stream, "<li><a href=\"%s/%s\">%s</a></li>\n",
         streq(r->uri, "/") ? "" : r->uri, entries[i]->d_name, entries[i]->d_name);
         free(entries[i]);
     }
@@ -137,7 +138,7 @@ Status  handle_browse_request(Request *r) {
  * HTTP_STATUS_NOT_FOUND.
  **/
 Status  handle_file_request(Request *r) {
-    log("entered handle_file_request\n");
+    log("entered handle_file_request");
     FILE *file_stream;
     char buffer[BUFSIZ];
     char *mtype = NULL;
@@ -147,7 +148,7 @@ Status  handle_file_request(Request *r) {
     file_stream = fopen(r->path, "r");
     if( !file_stream ){
       fprintf(stderr, "fopen failed: %s\n", strerror(errno));
-      log("fopen failed\n");
+      log("fopen failed");
       return handle_error(r, HTTP_STATUS_NOT_FOUND);
     }
 
@@ -198,7 +199,6 @@ Status handle_cgi_request(Request *r) {
     log("entered handle_cgi_request\n");
     FILE *pfs;
     char buffer[BUFSIZ];
-    struct header *header = r->headers;
 
     /* Export CGI environment variables from request:
      * http://en.wikipedia.org/wiki/Common_Gateway_Interface */
@@ -219,40 +219,40 @@ Status handle_cgi_request(Request *r) {
      if (setenv("SERVER_PORT", Port, 1))
          fprintf(stderr, "Error: Unable to set %s\n", strerror(errno));
 
+    debug("Set environmental variables");
+
     /* Export CGI environment variables from request headers */
-    while(header->name != NULL){
-      if (streq(header->name, "Accept"))
-			   setenv("HTTP_ACCEPT", header->data, 1);
-		  if (streq(header->name, "Accept-Encoding"))
-  			 setenv("HTTP_ACCEPT_ENCODING", header->data, 1);
-  		if (streq(header->name, "Accept-Language"))
-			   setenv("HTTP_ACCEPT_LANGUAGE", header->data, 1);
-		  if (streq(header->name, "Connection"))
-	       setenv("HTTP_CONNECTION", header->data, 1);
-		  if (streq(header->name, "Host"))
-			   setenv("HTTP_HOST", header->data, 1);
-		  if (streq(header->name, "User-Agent"))
-			   setenv("HTTP_USER_AGENT", header->data, 1);
-      header = header->next;
+    for (Header *h = r->headers; h; h = h->next) {
+        if (streq(h->name, "Accept"))
+	    setenv("HTTP_ACCEPT", h->data, 1);
+	if (streq(h->name, "Accept-Encoding"))
+  	    setenv("HTTP_ACCEPT_ENCODING", h->data, 1);
+  	if (streq(h->name, "Accept-Language"))
+	    setenv("HTTP_ACCEPT_LANGUAGE", h->data, 1);
+	if (streq(h->name, "Connection"))
+	    setenv("HTTP_CONNECTION", h->data, 1);
+	if (streq(h->name, "Host"))
+	    setenv("HTTP_HOST", h->data, 1);
+	if (streq(h->name, "User-Agent"))
+	    setenv("HTTP_USER_AGENT", h->data, 1);
     }
 
+    debug("Exported headers");
     /* POpen CGI Script */
     pfs = popen(r->path, "r");
-    if(!pfs){
-      pclose(pfs);
-      return handle_error(r, HTTP_STATUS_INTERNAL_SERVER_ERROR);
+    if(!pfs) {
+        pclose(pfs);
+        return handle_error(r, HTTP_STATUS_INTERNAL_SERVER_ERROR);
     }
 
     /* Copy data from popen to socket */
 
     while(fgets(buffer, BUFSIZ, pfs)){
-      fputs(buffer, r->stream);
+        fputs(buffer, r->stream);
     }
 
     /* Close popen, return OK */
     pclose(pfs);
-    fflush(r->stream);
-
     return HTTP_STATUS_OK;
 }
 
@@ -266,11 +266,11 @@ Status handle_cgi_request(Request *r) {
  * notify the user of the error.
  **/
 Status  handle_error(Request *r, Status status) {
-    log("entered handle_error\n");
+    log("entered handle_error");
     const char *statString = http_status_string(status);
 
     /* Write HTTP Header */
-    fprintf(r->stream, "HTTP/1.0 %s\n", statString);
+    fprintf(r->stream, "HTTP/1.0 %s\r\n", statString);
     fprintf(r->stream, "Content-Type: text/html\r\n");
     fprintf(r->stream, "\r\n");
 
@@ -278,10 +278,10 @@ Status  handle_error(Request *r, Status status) {
     fprintf(r->stream, "<html><body>");
     fprintf(r->stream, "<h1>%s</h1>\n",statString);
     fprintf(r->stream, "<p>:( >:( ;,( Error!</p>\n");
+    fprintf(r->stream, "<img src=\"https://mail.google.com/mail/u/0?ui=2&ik=2f638814c8&attid=0.1&permmsgid=msg-f:1665183808965414100&th=171bebda0b1d8cd4&view=att&disp=safe&realattid=f_k9jbt5io0\">");
     fprintf(r->stream, "<html><body>");
 
     /* Return specified status */
-    fflush(r->stream);
     return status;
 }
 
