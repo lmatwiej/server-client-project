@@ -53,7 +53,7 @@ Status  handle_request(Request *r) {
    
     if(stat(r->path, &sb) < 0){
         result = handle_error(r, HTTP_STATUS_NOT_FOUND);
-        log("HTTP REQUEST STATUS: %s\n", http_status_string(result));
+        debug("HTTP REQUEST STATUS: %s\n", http_status_string(result));
         return result;
     }
     
@@ -154,9 +154,15 @@ Status  handle_file_request(Request *r) {
 
     /* Determine mimetype */
     mtype = determine_mimetype(r->path);
-    debug("determine_mimetype -file_request");
 
-     /* Write HTTP Headers with OK status and determined Content-Type */
+    /*
+    if ( !mtype ) {
+        debug("MimeType Memory Allocation Error: %s", strerror(errno));
+        return handle_error(r, HTTP_STATUS_INTERNAL_SERVER_ERROR);
+    }
+    */
+
+    /* Write HTTP Headers with OK status and determined Content-Type */
     fprintf(r->stream, "HTTP/1.0 200 OK\r\n");
     fprintf(r->stream, "Content-Type: %s\r\n", mtype);
     fprintf(r->stream, "\r\n");
@@ -165,7 +171,6 @@ Status  handle_file_request(Request *r) {
     nread = fread(buffer, 1, BUFSIZ, file_stream);
     while ( nread > 0 ) {
         if ( ! fwrite(buffer, 1, nread, r->stream) ) {
-            fprintf(stderr, "%s\n", strerror(errno));
             goto fail;
         }
         nread = fread(buffer, 1, BUFSIZ, file_stream);
@@ -180,7 +185,7 @@ fail:
     /* Close file, free mimetype, return INTERNAL_SERVER_ERROR */
     fclose(file_stream);
     free(mtype);
-    return HTTP_STATUS_INTERNAL_SERVER_ERROR;
+    return handle_error(r, HTTP_STATUS_INTERNAL_SERVER_ERROR);
 }
 
 /**
@@ -196,30 +201,44 @@ fail:
  * HTTP_STATUS_INTERNAL_SERVER_ERROR.
  **/
 Status handle_cgi_request(Request *r) {
-    log("entered handle_cgi_request\n");
+    log("entered handle_cgi_request");
     FILE *pfs;
     char buffer[BUFSIZ];
 
     /* Export CGI environment variables from request:
      * http://en.wikipedia.org/wiki/Common_Gateway_Interface */
-     if (setenv("DOCUMENT_ROOT", RootPath, 1))
-         fprintf(stderr, "Error: Unable to set %s\n", strerror(errno));
-     if (setenv("QUERY_STRING", r->query, 1))
-         fprintf(stderr, "Error: Unable to set %s\n", strerror(errno));
-     if (setenv("REMOTE_ADDR", r->host, 1))
-         fprintf(stderr, "Error: Unable to set %s\n", strerror(errno));
-     if (setenv("REMOTE_PORT", r->port, 1))
-         fprintf(stderr, "Error: Unable to set %s\n", strerror(errno));
-     if (setenv("REQUEST_METHOD", r->method, 1))
-         fprintf(stderr, "Error: Unable to set %s\n", strerror(errno));
-     if (setenv("REQUEST_URI", r->uri, 1))
-         fprintf(stderr, "Error: Unable to set %s\n", strerror(errno));
-     if (setenv("SCRIPT_FILENAME", r->path, 1))
-         fprintf(stderr, "Error: Unable to set %s\n", strerror(errno));
-     if (setenv("SERVER_PORT", Port, 1))
-         fprintf(stderr, "Error: Unable to set %s\n", strerror(errno));
-
-    debug("Set environmental variables");
+    if (setenv("DOCUMENT_ROOT", RootPath, 1) < 0) {
+        debug("Error: Unable to set %s", strerror(errno));
+        return handle_error(r, HTTP_STATUS_INTERNAL_SERVER_ERROR);
+    }
+    if (setenv("QUERY_STRING", r->query, 1) < 0) {
+        debug("Error: Unable to set %s", strerror(errno));    
+        return handle_error(r, HTTP_STATUS_INTERNAL_SERVER_ERROR);
+    }
+    if (setenv("REMOTE_ADDR", r->host, 1) < 0) {    
+        debug("Error: Unable to set %s", strerror(errno));
+        return handle_error(r, HTTP_STATUS_INTERNAL_SERVER_ERROR);
+    }
+    if (setenv("REMOTE_PORT", r->port, 1) < 0) {
+        debug("Error: Unable to set %s", strerror(errno));
+        return handle_error(r, HTTP_STATUS_INTERNAL_SERVER_ERROR);
+    }
+    if (setenv("REQUEST_METHOD", r->method, 1) < 0) {
+        debug("Error: Unable to set %s", strerror(errno));
+        return handle_error(r, HTTP_STATUS_INTERNAL_SERVER_ERROR);
+    }
+    if (setenv("REQUEST_URI", r->uri, 1) < 0) {
+        debug("Error: Unable to set %s", strerror(errno));
+        return handle_error(r, HTTP_STATUS_INTERNAL_SERVER_ERROR);
+    }
+    if (setenv("SCRIPT_FILENAME", r->path, 1) < 0) {
+        debug("Error: Unable to set %s", strerror(errno));
+        return handle_error(r, HTTP_STATUS_INTERNAL_SERVER_ERROR);
+    }
+    if (setenv("SERVER_PORT", Port, 1) < 0) {
+        debug("Error: Unable to set %s", strerror(errno));
+        return handle_error(r, HTTP_STATUS_INTERNAL_SERVER_ERROR);
+    }
 
     /* Export CGI environment variables from request headers */
     for (Header *h = r->headers; h; h = h->next) {
@@ -237,11 +256,9 @@ Status handle_cgi_request(Request *r) {
 	    setenv("HTTP_USER_AGENT", h->data, 1);
     }
 
-    debug("Exported headers");
     /* POpen CGI Script */
     pfs = popen(r->path, "r");
     if(!pfs) {
-        pclose(pfs);
         return handle_error(r, HTTP_STATUS_INTERNAL_SERVER_ERROR);
     }
 

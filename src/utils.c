@@ -43,15 +43,17 @@ char * determine_mimetype(const char *path) {
     ext = strrchr(path, '.');
 
     if ( !ext ) {
+        debug("The . character was not found so use default mimetype");
         goto failure;
     }
     ext++;
 
-    log("Extension is: %s", ext);
+    // log("Extension is: %s", ext);
 
     /* Open MimeTypesPath file */
-    if ( !(fs = fopen(MimeTypesPath, "r")) ) {
-        debug("fopen error: %s", strerror(errno));
+    fs = fopen(MimeTypesPath, "r");
+    if ( !(fs) ) {
+        debug("Error opening file with mimetypes: %s", strerror(errno));
         goto failure;
     }
 
@@ -62,14 +64,13 @@ char * determine_mimetype(const char *path) {
             continue;
         }
 
-        token = strtok(NULL, WHITESPACE);
-        while (token) {
-          if ( streq(token, ext) ){
-              goto end;
-          }
-          token = strtok(NULL, WHITESPACE);
+        while ( (token = strtok(NULL, WHITESPACE) ) ) {
+            if ( streq(token, ext) ){
+                goto end;
+            }
         }
     }
+
     fclose(fs);
 
 failure:

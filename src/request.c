@@ -48,7 +48,7 @@ Request * accept_request(int sfd) {
     /* Lookup client information */
     int status = getnameinfo(&raddr, rlen, r->host, sizeof(r->host), r->port, sizeof(r->port), NI_NUMERICHOST | NI_NUMERICSERV);
     if (status < 0) {
-        debug("Unable to acept: %s", gai_strerror(status));
+        debug("Unable to accept: %s", gai_strerror(status));
         goto fail;
     }
 
@@ -87,20 +87,27 @@ void free_request(Request *r) {
     }
 
     /* Close socket or fd */
-    fclose(r->stream);
+    if ( r->stream )
+        fclose(r->stream);
 
     /* Free allocated strings */
-    free(r->method);
-    free(r->uri);
-    free(r->query);
-    free(r->path);
+    if ( r->method )
+        free(r->method);
+    if ( r->uri )
+        free(r->uri);
+    if ( r->query )
+        free(r->query);
+    if ( r->path )
+        free(r->path);
 
     /* Free headers */
     Header *h = r->headers;
     Header *curr;
     while (h) {
-        free(h->name);
-        free(h->data);
+        if ( h->name )
+            free(h->name);
+        if ( h->data )
+            free(h->data);
         curr = h;
         h = h->next;
         free(curr);
@@ -157,6 +164,7 @@ int parse_request_method(Request *r) {
 
     /* Read line from socket */
     if (!fgets(buffer, BUFSIZ, r->stream) ) {
+        debug("Unable to read line from socket: %s", strerror(errno));
         goto fail;
     }
 
@@ -165,6 +173,7 @@ int parse_request_method(Request *r) {
     uri    = strtok(NULL  , WHITESPACE);
 
     if ( !method || !uri ) {
+        debug("Unable to parse method and uri");
         goto fail;
     }
 
@@ -181,6 +190,7 @@ int parse_request_method(Request *r) {
     r->uri = strdup(uri);
     r->query = strdup(query);
     if ( !(r->method) || !(r->uri) || !(r->query) ) {
+        debug("Failed to alocate memory: %s", strerror(errno));
         goto fail;
     }
     debug("HTTP METHOD: %s", r->method);
@@ -232,6 +242,7 @@ int parse_request_headers(Request *r) {
 
         data = strchr(buffer,':');
         if ( !data ) {
+            debug("Unable to find : in the header");
             goto fail;
         }
         *(data++) = '\0';
@@ -239,13 +250,15 @@ int parse_request_headers(Request *r) {
         chomp(data);
         name = buffer;
 
-        curr = calloc(1,  sizeof(Header));
+        curr = calloc(1, sizeof(Header));
         if ( !curr ) {
+            debug("Unable to allocate a header: %s", strerror(errno));
             goto fail;
         }
         curr->name = strdup(name);
         curr->data = strdup(data);
         if ( !(curr->name) || !(curr->data) ) {
+            debug("Unable to allocate header info: %s", strerror(errno));
             goto fail;
         }
         curr->next = r->headers;
