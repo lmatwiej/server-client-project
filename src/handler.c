@@ -154,13 +154,10 @@ Status  handle_file_request(Request *r) {
 
     /* Determine mimetype */
     mtype = determine_mimetype(r->path);
-
-    /*
     if ( !mtype ) {
         debug("MimeType Memory Allocation Error: %s", strerror(errno));
         return handle_error(r, HTTP_STATUS_INTERNAL_SERVER_ERROR);
     }
-    */
 
     /* Write HTTP Headers with OK status and determined Content-Type */
     fprintf(r->stream, "HTTP/1.0 200 OK\r\n");
