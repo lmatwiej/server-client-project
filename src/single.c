@@ -29,7 +29,6 @@ int single_server(int sfd) {
 
 	/* Free request */
         free_request(request);
-        break;
     }
 
     /* Close server socket */
