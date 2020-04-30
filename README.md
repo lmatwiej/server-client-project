@@ -13,7 +13,7 @@ This is the [Final Project] for [CSE 20289 Systems Programming (Spring 2020)].
 
 ## Errata
 
-Summary of things that don't work (quite right).
+No errata to report.
 
 ## Contributions
 
