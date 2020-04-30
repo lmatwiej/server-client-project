@@ -17,17 +17,17 @@ No errata to report.
 
 ## Contributions
 
-Worked on spidey.c Lukaz/
-Worked on thor.py Lukaz/
+Worked on spidey.c Lukasz/
+Worked on thor.py Lukasz/
 Worked on handler.c Matt/
-Worked on Utils.c Matt and Lukaz/
-Worked on single.c Matt and Lukaz/
-Worked on forking.c Lukaz/
-Worked on socket.c Lukaz/
-Worked on request.c Matt and Lukaz/
-Error Handling: Matt and Lukaz/
-Experimentation and scripts: Matt and Lukaz/
-VPS: Lukaz/
+Worked on Utils.c Matt and Lukasz/
+Worked on single.c Matt and Lukasz/
+Worked on forking.c Lukasz/
+Worked on socket.c Lukasz/
+Worked on request.c Matt and Lukasz/
+Error Handling: Matt and Lukasz/
+Experimentation and scripts: Matt and Lukasz/
+VPS: Lukasz/
 Bootstrap: Matt
 
 
