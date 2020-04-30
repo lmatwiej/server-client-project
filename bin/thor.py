@@ -43,9 +43,9 @@ def hammer(url, throws, verbose, hid):
 
         throw_time = time2 - time1
         total_time += throw_time
-        print(f"Hammer {hid}, Throw:    {throw}, Elapsed Time: {throw_time:.2f}")
+        print(f"Hammer {hid}, Throw:    {throw}, Elapsed Time: {throw_time:.5f}")
     average_time = total_time / throws
-    print(f"Hammer {hid}, AVERAGE    , Elapsed Time: {average_time:.2f}")
+    print(f"Hammer {hid}, AVERAGE    , Elapsed Time: {average_time:.5f}")
 
     return average_time
 
@@ -58,6 +58,8 @@ def main():
     throws  = 1
     verbose = False
     
+    
+
     if (len(sys.argv) > 1):
         arguments = sys.argv[1:]
     else:
@@ -91,7 +93,7 @@ def main():
         total_average += time
 
     total_average /= hammers
-    print(f"TOTAL AVERAGE ELAPSED TIME: {total_average:.2f}")
+    print(f"TOTAL AVERAGE ELAPSED TIME: {total_average:.5f}")
 
     return 0
 
