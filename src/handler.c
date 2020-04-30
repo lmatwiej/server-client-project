@@ -108,7 +108,7 @@ Status  handle_browse_request(Request *r) {
     fprintf(r->stream, "Content-Type: text/html\r\n");
     fprintf(r->stream, "\r\n");
 
-    FILE *fhtml = fopen("main.html","r");
+    FILE *fhtml = fopen("www/main.html","r");
     size_t nread;
     char buffer[BUFSIZ];
     if( !fhtml ){
@@ -129,8 +129,7 @@ Status  handle_browse_request(Request *r) {
 
     fprintf(r->stream, "<div class=\"btn-group-vertical d-flex\" role=\"group\">\n");
     for(int i = 0; i < numHeader; i++) {
-        if( streq(entries[i]->d_name, ".") || streq(entries[i]->d_name, "main.css")
-        || streq(entries[i]->d_name, "main.html") || streq(entries[i]->d_name, "error.html")){
+        if( streq(entries[i]->d_name, ".")|| streq(entries[i]->d_name, "main.html") || streq(entries[i]->d_name, "error.html")){
             free(entries[i]);
             continue;
         }
@@ -306,7 +305,7 @@ Status  handle_error(Request *r, Status status) {
     fprintf(r->stream, "Content-Type: text/html\r\n");
     fprintf(r->stream, "\r\n");
 
-    FILE *fhtml = fopen("main.html","r");
+    FILE *fhtml = fopen("www/main.html","r");
     size_t nread;
     char buffer[BUFSIZ];
     if( !fhtml ){
@@ -326,7 +325,7 @@ Status  handle_error(Request *r, Status status) {
     fclose(fhtml);
     fprintf(r->stream, "<h1>%s</h1>\n",statString);
     /* Write HTML Description of Error*/
-    FILE *errhtml = fopen("error.html","r");
+    FILE *errhtml = fopen("www/error.html","r");
     if( !errhtml ){
       fprintf(stderr, "fopen failed: %s\n", strerror(errno));
       log("fopen failed");
