@@ -50,13 +50,13 @@ Status  handle_request(Request *r) {
     }
 
     debug("HTTP REQUEST PATH: %s", r->path);
-   
+
     if(stat(r->path, &sb) < 0){
         result = handle_error(r, HTTP_STATUS_NOT_FOUND);
         debug("HTTP REQUEST STATUS: %s\n", http_status_string(result));
         return result;
     }
-    
+
     /* Dispatch to appropriate request handler type based on file type */
 
     if ( S_ISDIR(sb.st_mode) ) {
@@ -108,18 +108,37 @@ Status  handle_browse_request(Request *r) {
     fprintf(r->stream, "Content-Type: text/html\r\n");
     fprintf(r->stream, "\r\n");
 
-    /* For each entry in directory, emit HTML list item */
-    fprintf(r->stream, "<ul>\n");
+    FILE *fhtml = fopen("main.html","r");
+    size_t nread;
+    char buffer[BUFSIZ];
+    if( !fhtml ){
+      fprintf(stderr, "fopen failed: %s\n", strerror(errno));
+      log("fopen failed");
+      return handle_error(r, HTTP_STATUS_NOT_FOUND);
+    }
+    nread = fread(buffer, 1, BUFSIZ, fhtml);
+    while ( nread > 0 ) {
+        if ( ! fwrite(buffer, 1, nread, r->stream) ) {
+            fclose(fhtml);
+            return handle_error(r, HTTP_STATUS_INTERNAL_SERVER_ERROR);
+        }
+        nread = fread(buffer, 1, BUFSIZ, fhtml);
+    }
+    fclose(fhtml);
+
+
+    fprintf(r->stream, "<div class=\"btn-group-vertical d-flex\" role=\"group\">\n");
     for(int i = 0; i < numHeader; i++) {
-        if( streq(entries[i]->d_name, ".") ) {
+        if( streq(entries[i]->d_name, ".") || streq(entries[i]->d_name, "main.css")
+        || streq(entries[i]->d_name, "main.html") || streq(entries[i]->d_name, "error.html")){
             free(entries[i]);
             continue;
         }
-        fprintf(r->stream, "<li><a href=\"%s/%s\">%s</a></li>\n",
+        fprintf(r->stream,"<a href=\"%s/%s\" class=\"btn btn-info\" role=\"button\">%s</a>\n",
         streq(r->uri, "/") ? "" : r->uri, entries[i]->d_name, entries[i]->d_name);
         free(entries[i]);
     }
-    fprintf(r->stream, "</ul>\n");
+    fprintf(r->stream, "</div>\n");
     free(entries);
 
     /* Return OK */
@@ -165,14 +184,13 @@ Status  handle_file_request(Request *r) {
     fprintf(r->stream, "\r\n");
 
     /* Read from file and write to socket in chunks */
-    nread = fread(buffer, 1, BUFSIZ, file_stream);
-    while ( nread > 0 ) {
-        if ( ! fwrite(buffer, 1, nread, r->stream) ) {
-            goto fail;
-        }
         nread = fread(buffer, 1, BUFSIZ, file_stream);
-    }
-
+        while ( nread > 0 ) {
+            if ( ! fwrite(buffer, 1, nread, r->stream) ) {
+                goto fail;
+            }
+            nread = fread(buffer, 1, BUFSIZ, file_stream);
+        }
      /* Close file, deallocate mimetype, return OK */
     fclose(file_stream);
     free(mtype);
@@ -209,10 +227,10 @@ Status handle_cgi_request(Request *r) {
         return handle_error(r, HTTP_STATUS_INTERNAL_SERVER_ERROR);
     }
     if (setenv("QUERY_STRING", r->query, 1) < 0) {
-        debug("Error: Unable to set %s", strerror(errno));    
+        debug("Error: Unable to set %s", strerror(errno));
         return handle_error(r, HTTP_STATUS_INTERNAL_SERVER_ERROR);
     }
-    if (setenv("REMOTE_ADDR", r->host, 1) < 0) {    
+    if (setenv("REMOTE_ADDR", r->host, 1) < 0) {
         debug("Error: Unable to set %s", strerror(errno));
         return handle_error(r, HTTP_STATUS_INTERNAL_SERVER_ERROR);
     }
@@ -288,13 +306,42 @@ Status  handle_error(Request *r, Status status) {
     fprintf(r->stream, "Content-Type: text/html\r\n");
     fprintf(r->stream, "\r\n");
 
-    /* Write HTML Description of Error*/
-    fprintf(r->stream, "<html><body>");
-    fprintf(r->stream, "<h1>%s</h1>\n",statString);
-    fprintf(r->stream, "<p>:( >:( ;,( Error!</p>\n");
-    fprintf(r->stream, "<img src=\"https://mail.google.com/mail/u/0?ui=2&ik=2f638814c8&attid=0.1&permmsgid=msg-f:1665183808965414100&th=171bebda0b1d8cd4&view=att&disp=safe&realattid=f_k9jbt5io0\">");
-    fprintf(r->stream, "<html><body>");
+    FILE *fhtml = fopen("main.html","r");
+    size_t nread;
+    char buffer[BUFSIZ];
+    if( !fhtml ){
+      fprintf(stderr, "fopen failed: %s\n", strerror(errno));
+      log("fopen failed");
+      return handle_error(r, HTTP_STATUS_NOT_FOUND);
+    }
 
+    nread = fread(buffer, 1, BUFSIZ, fhtml);
+    while ( nread > 0 ) {
+        if ( ! fwrite(buffer, 1, nread, r->stream) ) {
+            fclose(fhtml);
+            return handle_error(r, HTTP_STATUS_INTERNAL_SERVER_ERROR);
+        }
+        nread = fread(buffer, 1, BUFSIZ, fhtml);
+    }
+    fclose(fhtml);
+    fprintf(r->stream, "<h1>%s</h1>\n",statString);
+    /* Write HTML Description of Error*/
+    FILE *errhtml = fopen("error.html","r");
+    if( !errhtml ){
+      fprintf(stderr, "fopen failed: %s\n", strerror(errno));
+      log("fopen failed");
+      return handle_error(r, HTTP_STATUS_NOT_FOUND);
+    }
+
+    nread = fread(buffer, 1, BUFSIZ, errhtml);
+    while ( nread > 0 ) {
+        if ( ! fwrite(buffer, 1, nread, r->stream) ) {
+            fclose(errhtml);
+            return handle_error(r, HTTP_STATUS_INTERNAL_SERVER_ERROR);
+        }
+        nread = fread(buffer, 1, BUFSIZ, errhtml);
+    }
+    fclose(errhtml);
     /* Return specified status */
     return status;
 }
